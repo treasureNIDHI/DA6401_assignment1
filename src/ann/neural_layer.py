@@ -26,6 +26,8 @@ class Dense:
     def forward(self, x):
         self.cache_x = x
         return np.dot(x, self.W) + self.b
+
+        
     
     def backward(self, dout):
 
@@ -35,5 +37,5 @@ class Dense:
         grad_input = np.dot(dout, self.W.T)
         return grad_input
         
-
+        
     

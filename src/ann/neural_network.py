@@ -61,6 +61,8 @@ class NeuralNetwork:
                 activation_object = Sigmoid()
             elif cli_args.activation == "tanh":
                 activation_object = Tanh()
+            elif cli_args.activation == "softmax":
+                activation_object = Softmax()
             else:
                 raise ValueError("Invalid activation function")
             self.activations.append(activation_object)  # Use the selected activation for hidden layers
@@ -113,8 +115,8 @@ class NeuralNetwork:
         Update weights using the optimizer.
         """
         for layer in self.layers:
-            layer.W = self.optimizer.update(layer.W, layer.grad_W)
-            layer.b = self.optimizer.update(layer.b, layer.grad_b)
+            layer.W[:] = self.optimizer.update(layer.W, layer.grad_W)
+            layer.b[:] = self.optimizer.update(layer.b, layer.grad_b)
     
     def train(self, X_train, y_train, epochs, batch_size):
         """
@@ -138,11 +140,45 @@ class NeuralNetwork:
     def evaluate(self, X, y):
         """
         Evaluate the network on given data.
+        Returns accuracy, precision, recall, and f1 score.
         """
+        import numpy as np
+        
         y_pred = self.forward(X)
         # Convert predictions to class labels
         y_pred_labels = y_pred.argmax(axis=1)
-        # Compare with true labels
-        correct = (y_pred_labels == y).sum()
+        # Convert one-hot encoded labels to class indices if needed
+        if y.ndim == 2:
+            y_true_labels = y.argmax(axis=1)
+        else:
+            y_true_labels = y
+        
+        # Calculate accuracy
+        correct = (y_pred_labels == y_true_labels).sum()
         accuracy = correct / len(y)
-        return accuracy
+        
+        # Calculate precision, recall, and f1 for multi-class (macro-averaged)
+        num_classes = y_pred.shape[1]
+        precisions = []
+        recalls = []
+        f1_scores = []
+        
+        for cls in range(num_classes):
+            true_positive = ((y_pred_labels == cls) & (y_true_labels == cls)).sum()
+            false_positive = ((y_pred_labels == cls) & (y_true_labels != cls)).sum()
+            false_negative = ((y_pred_labels != cls) & (y_true_labels == cls)).sum()
+            
+            precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive) > 0 else 0
+            recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative) > 0 else 0
+            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+            
+            precisions.append(precision)
+            recalls.append(recall)
+            f1_scores.append(f1)
+        
+        # Macro-average
+        precision_avg = np.mean(precisions)
+        recall_avg = np.mean(recalls)
+        f1_avg = np.mean(f1_scores)
+        
+        return accuracy, precision_avg, recall_avg, f1_avg
