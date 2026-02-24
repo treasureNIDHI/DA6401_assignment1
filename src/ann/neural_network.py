@@ -2,6 +2,10 @@
 Main Neural Network Model class
 Handles forward and backward propagation loops
 """
+from ann.neural_layer import Dense
+from ann.activations import ReLU, Sigmoid, Tanh, Softmax
+from ann.objective_functions import CrossEntropyLoss, MSELoss
+from ann.optimizers import SGD, Momentum, RMSProp, Adam, Nadam, NAG
 
 class NeuralNetwork:
     """
@@ -15,7 +19,58 @@ class NeuralNetwork:
         Args:
             cli_args: Command-line arguments for configuring the network
         """
-        pass
+        self.layers = []
+        self.activations = []
+        self.loss_function = None
+        self.optimizer = None
+        self.input_size = 784
+        self.output_size = 10
+
+
+        if cli_args.loss == "cross_entropy":
+            self.loss_function = CrossEntropyLoss()
+
+        elif cli_args.loss == "mse":
+            self.loss_function = MSELoss()
+
+        if cli_args.optimizer == "sgd":
+            self.optimizer = SGD(cli_args.learning_rate)
+
+        elif cli_args.optimizer == "momentum":
+            self.optimizer = Momentum(cli_args.learning_rate, cli_args.momentum_beta)
+
+        elif cli_args.optimizer == "rmsprop":
+            self.optimizer = RMSProp(cli_args.learning_rate, cli_args.rmsprop_beta, cli_args.epsilon)
+
+        elif cli_args.optimizer == "adam":
+            self.optimizer = Adam(cli_args.learning_rate, cli_args.adam_beta1, cli_args.adam_beta2, cli_args.epsilon)
+
+        elif cli_args.optimizer == "nadam":
+            self.optimizer = Nadam(cli_args.learning_rate, cli_args.nadam_beta1, cli_args.nadam_beta2, cli_args.epsilon)
+
+        elif cli_args.optimizer == "nag":
+            self.optimizer = NAG(cli_args.learning_rate, cli_args.nag_beta)
+
+        previous_size = self.input_size
+        for size in cli_args.hidden_layer_sizes:
+            dense_layer = Dense(previous_size, size)
+            self.layers.append(dense_layer)
+            if cli_args.activation == "relu":
+                activation_object = ReLU()
+            elif cli_args.activation == "sigmoid":
+                activation_object = Sigmoid()
+            elif cli_args.activation == "tanh":
+                activation_object = Tanh()
+            else:
+                raise ValueError("Invalid activation function")
+            self.activations.append(activation_object)  # Use the selected activation for hidden layers
+            previous_size = size
+        output_layer = Dense(previous_size, self.output_size)
+        self.layers.append(output_layer)
+        self.activations.append(Softmax()) 
+
+
+
     
     def forward(self, X):
         """
@@ -27,8 +82,13 @@ class NeuralNetwork:
         Returns:
             Output logits
         """
-        pass
-    
+        output = X
+
+        for i, layer in enumerate(self.layers):
+            output = layer.forward(output)
+            output = self.activations[i].forward(output)
+        return output
+
     def backward(self, y_true, y_pred):
         """
         Backward propagation to compute gradients.
@@ -40,22 +100,49 @@ class NeuralNetwork:
         Returns:
             return grad_w, grad_b
         """
-        pass
+        self.loss_function.y_pred = y_pred
+        self.loss_function.y_true = y_true
+        grad = self.loss_function.backward()
+
+        for i in reversed(range(len(self.layers))):
+            grad = self.activations[i].backward(grad)
+            grad = self.layers[i].backward(grad)
     
     def update_weights(self):
         """
         Update weights using the optimizer.
         """
-        pass
+        for layer in self.layers:
+            layer.W = self.optimizer.update(layer.W, layer.grad_W)
+            layer.b = self.optimizer.update(layer.b, layer.grad_b)
     
     def train(self, X_train, y_train, epochs, batch_size):
         """
         Train the network for specified epochs.
         """
-        pass
-    
+
+        for epoch in range(epochs):
+
+            for batch in range(0, len(X_train), batch_size):
+
+                X_batch = X_train[batch:batch + batch_size]
+                y_batch = y_train[batch:batch + batch_size]
+
+                y_pred = self.forward(X_batch)
+                loss = self.loss_function.forward(y_pred, y_batch)
+                print(f"Epoch {epoch + 1}, Batch {batch}, Loss: {loss:.4f}")
+                self.backward(y_batch, y_pred)
+                self.update_weights()
+
+        
     def evaluate(self, X, y):
         """
         Evaluate the network on given data.
         """
-        pass
+        y_pred = self.forward(X)
+        # Convert predictions to class labels
+        y_pred_labels = y_pred.argmax(axis=1)
+        # Compare with true labels
+        correct = (y_pred_labels == y).sum()
+        accuracy = correct / len(y)
+        return accuracy
