@@ -11,6 +11,8 @@ class Dense:
         elif init_method == "xavier":
             limit = np.sqrt(6 / (input_features + output_features))
             self.W = np.random.uniform(-limit, limit, (input_features, output_features))
+        elif init_method == "zeros":
+            self.W = np.zeros((input_features, output_features))
         else:
             raise ValueError("Invalid initialization method")
         
@@ -30,10 +32,10 @@ class Dense:
         
     
     def backward(self, dout):
-
-        batch_size = self.cache_x.shape[0]
-        self.grad_W = np.dot(self.cache_x.T, dout) / batch_size
-        self.grad_b = np.sum(dout, axis=0, keepdims=True) / batch_size
+        if self.cache_x is None:
+            raise RuntimeError("forward must be called before backward")
+        self.grad_W = np.dot(self.cache_x.T, dout)
+        self.grad_b = np.sum(dout, axis=0, keepdims=True)
         grad_input = np.dot(dout, self.W.T)
         return grad_input
         

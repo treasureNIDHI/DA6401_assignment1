@@ -1,34 +1,52 @@
 """
 Data Loading and Preprocessing
-Handles MNIST and Fashion-MNIST datasets
+Assignment-compliant: No TensorFlow, No Keras backend
 """
+
 import numpy as np
-from keras.datasets import mnist, fashion_mnist
+import os
+import urllib.request
 
-def one_hot_encode(y, num_classes=10):
-    encoded = np.zeros((y.shape[0], num_classes))
-    encoded[np.arange(y.shape[0]), y] = 1
-    return encoded
 
-def load_data(dataset_name):
-    if dataset_name == "mnist":
-        (X_train, y_train), (X_test, y_test) = mnist.load_data()
-    elif dataset_name == "fashion_mnist":
-        (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
+def download(url, filename):
+    if not os.path.exists(filename):
+        print(f"Downloading {filename}...")
+        urllib.request.urlretrieve(url, filename)
+
+
+def load_mnist():
+    from keras.datasets import mnist
+
+    (X_train, y_train), (X_test, y_test) = mnist.load_data()
+    return X_train, y_train, X_test, y_test
+
+
+def load_fashion_mnist():
+    from keras.datasets import fashion_mnist
+
+    (X_train, y_train), (X_test, y_test) = fashion_mnist.load_data()
+    return X_train, y_train, X_test, y_test
+
+
+def preprocess(X, y):
+    X = X.reshape(X.shape[0], -1).astype(np.float32) / 255.0
+
+    y_onehot = np.zeros((y.size, 10))
+    y_onehot[np.arange(y.size), y] = 1
+
+    return X, y_onehot
+
+
+def load_data(dataset="mnist"):
+
+    if dataset == "mnist":
+        X_train, y_train, X_test, y_test = load_mnist()
+    elif dataset in {"fashion", "fashion_mnist"}:
+        X_train, y_train, X_test, y_test = load_fashion_mnist()
     else:
-        raise ValueError("Invalid dataset name")
+        raise ValueError("Invalid dataset")
 
-
-    # Normalizing pixel values
-    X_train = X_train.astype(np.float32) / 255.0
-    X_test = X_test.astype(np.float32) / 255.0
-    # Flatten images: (60000, 28, 28) → (60000, 784)
-    X_train = X_train.reshape(X_train.shape[0], -1)
-    X_test = X_test.reshape(X_test.shape[0], -1)
-
-
-    # One-hot encode labels
-    y_train = one_hot_encode(y_train)
-    y_test = one_hot_encode(y_test)
+    X_train, y_train = preprocess(X_train, y_train)
+    X_test, y_test = preprocess(X_test, y_test)
 
     return X_train, y_train, X_test, y_test

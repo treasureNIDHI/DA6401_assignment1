@@ -1,0 +1,21 @@
+# Local environments/editor
+.env/
+.vscode/
+
+# Python caches
+**/__pycache__/
+*.pyc
+
+# Experiment tracking/cache outputs
+wandb/
+wandb_export_*.csv
+
+# Local datasets
+data/
+
+# Model checkpoints (keep only submission model)
+models/*.npy
+!models/best_model.npy
+
+# Generated analysis dumps not needed for submission
+images/*.json

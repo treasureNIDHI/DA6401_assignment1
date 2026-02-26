@@ -24,13 +24,17 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Run inference on test set')
 
     parser.add_argument('--model_path', type=str, default='models/best_model.npy', help='Path to saved model weights')
-    parser.add_argument('--dataset', type=str, choices=['mnist', 'fashion_mnist'], default='mnist', help='Dataset to evaluate on')
-    parser.add_argument('--batch_size', type=int, default=64, help='Batch size for inference')
-    parser.add_argument('--hidden_layer_sizes', type=int, nargs='+', default=[128, 64], help='Sizes of hidden layers')
-    parser.add_argument('--activation', type=str, choices=['relu', 'sigmoid', 'tanh', 'softmax'], default='relu', help='Activation function to use')    
-    parser.add_argument('--loss', type=str, choices=['cross_entropy', 'mse'], default='cross_entropy', help='Loss function to use') 
-    parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate for optimizer (not used in inference but required for model initialization')
-    parser.add_argument('--optimizer', type=str, choices=['sgd', 'momentum', 'nag', 'rmsprop', 'adam', 'nadam'], default='adam', help='Optimizer to use (not used in inference but required for model initialization)')
+    parser.add_argument('-d', '--dataset', type=str, choices=['mnist', 'fashion', 'fashion_mnist'], default='mnist', help='Dataset to evaluate on')
+    parser.add_argument('-b', '--batch_size', type=int, default=64, help='Batch size for inference')
+    parser.add_argument('--hidden_layer_sizes', type=int, nargs='+', default=[128, 64], help='Sizes of hidden layers (backward compatible alias)')
+    parser.add_argument('-sz', '--hidden_size', type=int, nargs='+', default=None, help='Sizes of hidden layers')
+    parser.add_argument('-nhl', '--num_layers', type=int, default=None, help='Number of hidden layers')
+    parser.add_argument('-a', '--activation', type=str, choices=['relu', 'sigmoid', 'tanh'], default='relu', help='Activation function to use')
+    parser.add_argument('-l', '--loss', type=str, choices=['cross_entropy', 'mse'], default='cross_entropy', help='Loss function to use')
+    parser.add_argument('-lr', '--learning_rate', type=float, default=0.001, help='Learning rate for optimizer (not used in inference but required for model initialization)')
+    parser.add_argument('-o', '--optimizer', type=str, choices=['sgd', 'momentum', 'nag', 'rmsprop', 'adam', 'nadam'], default='adam', help='Optimizer to use (not used in inference but required for model initialization)')
+    parser.add_argument('-wi', '--weight_init', type=str, choices=['random', 'xavier', 'zeros'], default='random', help='Weight initialization method')
+    parser.add_argument('-wd', '--weight_decay', type=float, default=0.0, help='L2 weight decay coefficient')
 
 
     parser.add_argument('--momentum_beta', type=float, default=0.9, help='Momentum beta for Momentum optimizer (not used in inference but required for model initialization)')
@@ -42,7 +46,23 @@ def parse_arguments():
     parser.add_argument('--nag_beta', type=float, default=0.9, help='Beta for NAG optimizer (not used in inference but required for model initialization)') 
     parser.add_argument('--epsilon', type=float, default=1e-8, help='Epsilon for optimizers to prevent division by zero (not used in inference but required for model initialization)') 
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.hidden_size is not None:
+        args.hidden_layer_sizes = args.hidden_size
+
+    if args.num_layers is not None:
+        if len(args.hidden_layer_sizes) == 1 and args.num_layers > 1:
+            args.hidden_layer_sizes = args.hidden_layer_sizes * args.num_layers
+        elif len(args.hidden_layer_sizes) != args.num_layers:
+            raise ValueError(
+                "num_layers must match number of hidden_size values, or provide a single hidden_size to repeat"
+            )
+
+    if args.dataset == 'fashion':
+        args.dataset = 'fashion_mnist'
+
+    return args
 
 
 def load_model(model_path, args):

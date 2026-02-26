@@ -1,0 +1,46 @@
+program: src/train.py
+
+method: random
+
+metric:
+  name: test_accuracy
+  goal: maximize
+
+command:
+  - ${env}
+  - E:/DA6401/assignment_1/.env/Scripts/python.exe
+  - ${program}
+  - ${args}
+
+parameters:
+
+  dataset:
+    value: mnist
+
+  epochs:
+    value: 5
+
+  loss:
+    value: cross_entropy
+
+  optimizer:
+    values: ["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"]
+
+  learning_rate:
+    values: [0.0001, 0.0005, 0.001]
+
+  batch_size:
+    values: [32, 64, 128]
+
+  activation:
+    values: ["relu", "tanh", "sigmoid"]
+
+  weight_init:
+    values: ["random", "xavier"]
+
+  hidden_layer_sizes:
+    values:
+      - [64]
+      - [128]
+      - [128, 64]
+      - [128, 64, 32]

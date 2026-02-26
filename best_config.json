@@ -1,0 +1,33 @@
+{
+    "config": null,
+    "dataset": "mnist",
+    "epochs": 2,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "optimizer": "momentum",
+    "hidden_layer_sizes": [
+        128,
+        64
+    ],
+    "hidden_size": [
+        "128",
+        "64"
+    ],
+    "num_layers": 2,
+    "activation": "relu",
+    "loss": "cross_entropy",
+    "weight_init": "xavier",
+    "weight_decay": 0.0,
+    "wandb_project": "assignment_1-global_strict",
+    "model_save_path": "models/global_strict_8.npy",
+    "momentum_beta": 0.9,
+    "rmsprop_beta": 0.9,
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.999,
+    "nadam_beta1": 0.9,
+    "nadam_beta2": 0.999,
+    "nag_beta": 0.9,
+    "seed": 42,
+    "log_interval": 10,
+    "epsilon": 1e-08
+}
