@@ -19,3 +19,6 @@ models/*.npy
 
 # Generated analysis dumps not needed for submission
 images/*.json
+
+# Notebooks (keep local, do not track)
+*.ipynb
