@@ -88,7 +88,7 @@ def parse_arguments():
     parser.add_argument('-l', '--loss', type=str, choices=['cross_entropy', 'mse'], default='cross_entropy', help='Loss function to use')
     parser.add_argument('-wi', '--weight_init', type=str, choices=['random', 'xavier', 'zeros'], default='random', help='Weight initialization method')
     parser.add_argument('-wd', '--weight_decay', type=float, default=0.0, help='L2 weight decay coefficient')
-    parser.add_argument('--wandb_project', type=str, default='nn_training', help='W&B project name')
+    parser.add_argument('-wp', '--wandb_project', '--wandb-project', type=str, default='nn_training', help='W&B project id:dynfysb5')
     parser.add_argument('--model_save_path', type=str, default='models/best_model.npy', help='Path to save trained model')
 
 
@@ -136,7 +136,7 @@ def main():
     """
     args = parse_arguments()
 
-    # Initialize wandb correctly
+    # Initialize wandb
     wandb.init(
         project=args.wandb_project,
         name=f"{args.optimizer}_{args.activation}_{args.learning_rate}",
@@ -144,44 +144,54 @@ def main():
     )
 
     print("Loading data...")
-    X_train, y_train, X_test, y_test = load_data(args.dataset)
-    X_train_split, X_val, y_train_split, y_val = train_test_split(
-        X_train,
-        y_train,
-        test_size=0.1,
-        random_state=args.seed,
-        stratify=np.argmax(y_train, axis=1)
-    )
+    X_train_full, y_train_full, X_test, y_test = load_data(args.dataset)
+
+    # Create validation split (90% train, 10% validation)
+    split_idx = int(0.9 * len(X_train_full))
+
+    X_train = X_train_full[:split_idx]
+    y_train = y_train_full[:split_idx]
+
+    X_val = X_train_full[split_idx:]
+    y_val = y_train_full[split_idx:]
 
     print("Initializing model...")
     model = NeuralNetwork(args)
 
     print("Starting training...")
-    model.train(
-        X_train_split,
-        y_train_split,
-        epochs=args.epochs,
-        batch_size=args.batch_size,
-        X_test=X_val,
-        y_test=y_val
-    )
+    model.train(X_train, y_train, epochs=args.epochs, batch_size=args.batch_size)
 
-    print("Evaluating model...")
-    accuracy, precision, recall, f1 = model.evaluate(X_test, y_test)
+    # -------- VALIDATION EVALUATION (for sweep) --------
+    print("Evaluating on validation set...")
+    val_accuracy, val_precision, val_recall, val_f1 = model.evaluate(X_val, y_val)
 
-    print(f"Test Accuracy: {accuracy*100:.2f}%")
-    print(f"Precision: {precision*100:.2f}%")
-    print(f"Recall: {recall*100:.2f}%")
-    print(f"F1 Score: {f1*100:.2f}%")
+    print(f"Validation Accuracy: {val_accuracy*100:.2f}%")
 
-    # Log metrics to wandb
     wandb.log({
-        "test_accuracy": accuracy,
-        "precision": precision,
-        "recall": recall,
-        "f1_score": f1
+        "validation_accuracy": val_accuracy,
+        "validation_precision": val_precision,
+        "validation_recall": val_recall,
+        "validation_f1_score": val_f1
     })
 
+    # -------- TEST EVALUATION (ONLY when NOT in sweep) --------
+    if wandb.run and not wandb.run.sweep_id:
+        print("Evaluating on test set...")
+        test_accuracy, test_precision, test_recall, test_f1 = model.evaluate(X_test, y_test)
+
+        print(f"Test Accuracy: {test_accuracy*100:.2f}%")
+        print(f"Test Precision: {test_precision*100:.2f}%")
+        print(f"Test Recall: {test_recall*100:.2f}%")
+        print(f"Test F1 Score: {test_f1*100:.2f}%")
+
+        wandb.log({
+            "test_accuracy": test_accuracy,
+            "test_precision": test_precision,
+            "test_recall": test_recall,
+            "test_f1_score": test_f1
+        })
+
+    # -------- SAVE MODEL --------
     print("Saving model...")
     os.makedirs(os.path.dirname(args.model_save_path), exist_ok=True)
 
@@ -197,15 +207,11 @@ def main():
         np.array(
             {
                 "weights": weights,
-                "biases": biases
+                "biases": biases,
             },
-            dtype=object
-        )
+            dtype=object,
+        ),
     )
-
-    # Save config file
-    with open("best_config.json", "w") as f:
-        json.dump(vars(args), f, indent=4)
 
     print("Training complete!")
     print(f"Model saved to {args.model_save_path}")

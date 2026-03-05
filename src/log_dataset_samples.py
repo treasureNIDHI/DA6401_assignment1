@@ -1,8 +1,8 @@
 import wandb
 import numpy as np
 from utils.data_loader import load_data
-
-wandb.init(project="da6401-assignment-1", name="dataset_visualization")
+###this is for report question 2.1#######
+wandb.init(project="assignment_1-src", name="dataset_visualization")
 
 X_train, y_train, _, _ = load_data("mnist")
 

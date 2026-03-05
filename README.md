@@ -8,7 +8,7 @@ The assignment requires:
 - Modular neural network implementation (forward + backward pass)
 - Multiple optimizers
 - CLI-driven training/inference
-- W&B-based experimentation and reporting
+- W&B-based experimentation and reporting (final report built in wandb.ai UI)
 
 No deep learning frameworks (PyTorch, TensorFlow, JAX autograd, etc.) are used for model implementation.
 
@@ -18,29 +18,44 @@ No deep learning frameworks (PyTorch, TensorFlow, JAX autograd, etc.) are used f
 
 ```text
 assignment_1/
+├── .env/
+├── data/
+│   └── mnist.npz
+├── images/
+├── models/
+│   ├── best_model.npy
+│   └── ...
+├── notebooks/
+│   └── wandb_demo.ipynb
 ├── src/
 │   ├── ann/
 │   │   ├── activations.py
+│   │   ├── __init__.py
 │   │   ├── neural_layer.py
 │   │   ├── neural_network.py
 │   │   ├── objective_functions.py
 │   │   └── optimizers.py
 │   ├── utils/
+│   │   ├── __init__.py
 │   │   └── data_loader.py
+│   ├── best_model.npy
 │   ├── train.py
 │   ├── inference.py
+│   ├── error_analysis.py
 │   ├── log_dataset_samples.py
 │   ├── generate_error_analysis.py
 │   ├── analyze_dead_relu_tanh.py
 │   ├── analyze_global_performance.py
 │   ├── analyze_global_performance_strict.py
 │   └── generate_parallel_coordinates.py
-├── images/
-├── models/
-│   └── best_model.npy
+├── wandb/
+│   └── run-*/
 ├── best_config.json
-├── report.md
+├── pyrightconfig.json
+├── report.md  (optional local notes; final report is on wandb.ai)
 ├── requirements.txt
+├── sweep.yaml
+├── wandb_export_2026-02-26T22_26_44.673+05_30.csv
 └── README.md
 ```
 
@@ -71,6 +86,7 @@ pip install -r requirements.txt
 - `-sz, --hidden_size` (list)
 - `-a, --activation` : `sigmoid`, `tanh`, `relu`
 - `-wi, --weight_init` : `random`, `xavier` (includes `zeros` for symmetry experiment)
+- `-wp, --wandb_project, --wandb-project` : W&B project id/name
 
 ---
 
@@ -85,7 +101,7 @@ pip install -r requirements.txt
 ### Example explicit run
 
 ```bash
-.env\Scripts\python.exe src\train.py -d mnist -e 10 -b 64 -lr 0.001 -nhl 2 -sz 128 64 -a tanh -l cross_entropy -wi xavier -o adam
+.env\Scripts\python.exe src\train.py -d mnist -e 15 -b 128 -lr 0.001 -nhl 2 -sz 128 64 -a relu -l cross_entropy -wi xavier -o rmsprop --wandb-project assignment_1-src
 ```
 
 Notes:
@@ -97,7 +113,7 @@ Notes:
 ## Inference
 
 ```bash
-.env\Scripts\python.exe src\inference.py --model_path models\best_model.npy -d mnist -sz 128 -a tanh -l cross_entropy
+.env\Scripts\python.exe src\inference.py --model_path models\best_model.npy -d mnist -sz 128 64 -a relu -l cross_entropy
 ```
 
 Inference reports:
@@ -114,12 +130,20 @@ Required submission artifacts:
 - `models/best_model.npy`
 - `best_config.json`
 - Public GitHub repository
-- Public W&B report link
+- Public W&B report link (created via wandb.ai UI)
 
 ### Links
 
 - GitHub Repository: `<ADD_PUBLIC_GITHUB_REPO_URL_HERE>`
-- W&B Report: `<ADD_PUBLIC_WANDB_REPORT_URL_HERE>`
+- W&B Report: [DA6401 Assignment 1 Report](https://wandb.ai/nidhi-jagatpura-iit-madras/assignment_1-src/reports/-DA6401-Assignment-1-Report--VmlldzoxNjA1NTQzMA?accessToken=onizvul3bhac2tgau1hds5klaaw1qw1yhkg005x4qumt0blhhcc729auhqd1qj5o)
+
+### Latest Fashion-MNIST Results (March 2026)
+
+| configuration | architecture | optimizer | activation | test accuracy |
+|---|---|---|---|---|
+| dataset=fashion_mnist, lr=0.001, batch_size=128, weight_init=xavier, epochs=10 (run cfjn0t0v) | 128-64 | adam | tanh | 0.8724 |
+| dataset=fashion_mnist, lr=0.001, batch_size=128, weight_init=xavier, epochs=10 (run brhkoill) | 128-128-128 | rmsprop | relu | 0.8771 |
+| dataset=fashion_mnist, lr=0.001, batch_size=128, weight_init=xavier, epochs=10 (run 5yasvfun) | 128-128-128 | adam | relu | 0.8738 |
 
 ---
 
@@ -134,9 +158,11 @@ The following scripts were used to generate report artifacts:
 - `src/analyze_global_performance_strict.py` (strict train-vs-test analysis)
 - `src/generate_error_analysis.py` (confusion matrix + failure gallery)
 
+Generate confusion matrix and failure gallery:
+
+```bash
+.env\Scripts\python.exe src\generate_error_analysis.py best_config.json models\best_model.npy
+```
+
 ---
 
-## Notes
-
-- This is coursework for DA6401 (Introduction to Deep Learning).
-- The repository is structured to satisfy assignment grading constraints and reproducible experimentation.

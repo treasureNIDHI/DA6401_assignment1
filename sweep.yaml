@@ -2,8 +2,9 @@ program: src/train.py
 
 method: random
 
+
 metric:
-  name: test_accuracy
+  name: validation_accuracy
   goal: maximize
 
 command:

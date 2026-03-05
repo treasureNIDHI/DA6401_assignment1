@@ -15,21 +15,26 @@
   - Precision: **97.26%**
   - Recall: **97.27%**
   - F1 Score: **97.25%**
-- Latest retrained checkpoint (`models/best_model.npy`, 10 epochs with `best_config.json`):
-  - Test Accuracy: **97.41%**
-  - Precision: **97.42%**
-  - Recall: **97.38%**
-  - F1 Score: **97.39%**
+- Latest retrained checkpoint (`models/best_model.npy`, 15 epochs with `best_config.json`):
+  - Optimizer: **RMSProp**, Activation: **ReLU**, Hidden Layer Sizes: **[128, 64]**
+  - Test Accuracy: **97.37%**
+  - Precision: **97.37%**
+  - Recall: **97.34%**
+  - F1 Score: **97.35%**
+  - W&B Run: https://wandb.ai/nidhi-jagatpura-iit-madras/assignment_1-src/runs/kox3t47h
 
 ---
 
 ## 2.1 Data Exploration and Class Distribution (3 Marks)
+
+![MNIST 5 Samples Per Class](images/mnist_5x10_samples.png)
 
 ### What was done
 - Logged class-wise sample images using a W&B table script.
 - Source script: `src/log_dataset_samples.py`
 - W&B table run: https://wandb.ai/nidhi-jagatpura-iit-madras/da6401-assignment-1/runs/jmayqt40
 - Logged artifact key: `mnist_samples` (5 examples per class for all 10 classes).
+- Added static report figure `images/mnist_5x10_samples.png` showing all **5 × 10 = 50** examples.
 
 ### Observations
 - Visually similar MNIST digits include: **3 vs 5**, **4 vs 9**, and **7 vs 1** (depending on writing style).
