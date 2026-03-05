@@ -134,7 +134,7 @@ Required submission artifacts:
 
 ### Links
 
-- GitHub Repository: `<ADD_PUBLIC_GITHUB_REPO_URL_HERE>`
+- GitHub Repository: [DA6401_assignment1](https://github.com/treasureNIDHI/DA6401_assignment1)
 - W&B Report: [DA6401 Assignment 1 Report](https://wandb.ai/nidhi-jagatpura-iit-madras/assignment_1-src/reports/-DA6401-Assignment-1-Report--VmlldzoxNjA1NTQzMA?accessToken=onizvul3bhac2tgau1hds5klaaw1qw1yhkg005x4qumt0blhhcc729auhqd1qj5o)
 
 ### Latest Fashion-MNIST Results (March 2026)
