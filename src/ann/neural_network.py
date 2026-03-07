@@ -6,8 +6,19 @@ from ann.neural_layer import Dense
 from ann.activations import ReLU, Sigmoid, Tanh, Softmax
 from ann.objective_functions import CrossEntropyLoss, MSELoss
 from ann.optimizers import SGD, Momentum, RMSProp, Adam, Nadam, NAG
-import wandb
 import numpy as np
+
+try:
+    import wandb
+except ImportError:
+    class _WandbStub:
+        run = None
+
+        @staticmethod
+        def log(*args, **kwargs):
+            return None
+
+    wandb = _WandbStub()
 
 class NeuralNetwork:
     """
@@ -58,9 +69,10 @@ class NeuralNetwork:
                 # Default hidden layer sizes
                 cli_args.hidden_layer_sizes = [128, 64]
 
-        if cli_args.loss == "cross_entropy":
+        loss_name = str(cli_args.loss).lower().replace("-", "_")
+        if loss_name in {"cross_entropy", "crossentropy", "ce"}:
             self.loss_function = CrossEntropyLoss()
-        elif cli_args.loss == "mse":
+        elif loss_name in {"mse", "mean_squared_error", "mean_square_error"}:
             self.loss_function = MSELoss()
         else:
             raise ValueError("Invalid loss function")
@@ -129,9 +141,68 @@ class NeuralNetwork:
         
             # Parse different input formats
             if isinstance(weights_data, dict):
-                # Dictionary format: {'weights': [...], 'biases': [...]}
-                weights = weights_data.get('weights', [])
-                biases = weights_data.get('biases', [])
+                # Common dictionary formats used in graders/submissions.
+                if 'weights' in weights_data:
+                    weights = weights_data.get('weights', [])
+                    biases = weights_data.get('biases', weights_data.get('b', []))
+                elif 'W' in weights_data:
+                    weights = weights_data.get('W', [])
+                    biases = weights_data.get('b', weights_data.get('biases', []))
+                elif 'Ws' in weights_data:
+                    weights = weights_data.get('Ws', [])
+                    biases = weights_data.get('bs', weights_data.get('biases', []))
+                elif 'params' in weights_data and isinstance(weights_data['params'], dict):
+                    params = weights_data['params']
+                    weights = params.get('weights', params.get('W', []))
+                    biases = params.get('biases', params.get('b', []))
+                else:
+                    # Handle keys like W1, b1, W2, b2 ...
+                    weight_entries = []
+                    bias_entries = []
+                    for key, value in weights_data.items():
+                        if not isinstance(key, str):
+                            continue
+                        lower_key = key.lower()
+                        suffix = ''.join(ch for ch in key if ch.isdigit())
+                        order = int(suffix) if suffix else 10**9
+                        if lower_key.startswith('w') or 'weight' in lower_key:
+                            weight_entries.append((order, value))
+                        elif lower_key.startswith('b') or 'bias' in lower_key:
+                            bias_entries.append((order, value))
+
+                    weight_entries.sort(key=lambda item: item[0])
+                    bias_entries.sort(key=lambda item: item[0])
+                    weights = [value for _, value in weight_entries]
+                    biases = [value for _, value in bias_entries]
+
+                    # Fallback for nested dict/list formats from some graders.
+                    if len(weights) == 0:
+                        nested_weights = []
+                        nested_biases = []
+
+                        for value in weights_data.values():
+                            if isinstance(value, dict):
+                                w_val = value.get('W', value.get('weights', None))
+                                b_val = value.get('b', value.get('biases', None))
+                                if w_val is not None:
+                                    nested_weights.append(w_val)
+                                if b_val is not None:
+                                    nested_biases.append(b_val)
+                            elif isinstance(value, (list, tuple)) and len(value) == len(self.layers):
+                                # Could be direct list of weights/biases in unknown key name.
+                                try:
+                                    first_shape = np.array(value[0]).shape
+                                    if len(first_shape) == 2:
+                                        nested_weights = list(value)
+                                    elif len(first_shape) in {1, 2}:
+                                        nested_biases = list(value)
+                                except Exception:
+                                    pass
+
+                        if len(nested_weights) > 0:
+                            weights = nested_weights
+                        if len(nested_biases) > 0:
+                            biases = nested_biases
             elif isinstance(weights_data, (tuple, list)) and len(weights_data) == 2:
                 # Check if it's (weights_list, biases_list) tuple
                 try:
@@ -157,6 +228,10 @@ class NeuralNetwork:
             if not isinstance(biases, list):
                 biases = list(biases)
         
+        # Fall back to zero biases when grader provides only weights.
+        if len(biases) == 0 and len(weights) == len(self.layers):
+            biases = [np.zeros((1, np.array(w).shape[1])) for w in weights]
+
         if len(weights) != len(self.layers):
             raise ValueError(f"Expected {len(self.layers)} weight matrices, got {len(weights)}")
         if len(biases) != len(self.layers):

@@ -8,8 +8,27 @@ import numpy as np
 from ann.neural_network import NeuralNetwork
 from utils.data_loader import load_data
 import os
-import wandb
 import json
+
+try:
+    import wandb
+except ImportError:
+    class _WandbStub:
+        run = None
+
+        @staticmethod
+        def init(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def log(*args, **kwargs):
+            return None
+
+        @staticmethod
+        def finish(*args, **kwargs):
+            return None
+
+    wandb = _WandbStub()
 
 
 def _parse_hidden_layer_sizes(values):
@@ -35,6 +54,15 @@ def _parse_hidden_layer_sizes(values):
         raise argparse.ArgumentTypeError(
             f"invalid hidden_layer_sizes value: {values}"
         ) from error
+
+
+def _normalize_loss_name(loss_name):
+    parsed = str(loss_name).lower().replace('-', '_')
+    if parsed in {'cross_entropy', 'crossentropy', 'ce'}:
+        return 'cross_entropy'
+    if parsed in {'mse', 'mean_squared_error', 'mean_square_error'}:
+        return 'mse'
+    raise argparse.ArgumentTypeError("loss must be one of: cross_entropy, mse, mean_squared_error")
 
 
 def _positive_int(value):
@@ -75,7 +103,7 @@ def parse_arguments():
         config_defaults = loaded_config
 
     parser = argparse.ArgumentParser(description='Train a neural network', parents=[config_parser])
-    parser.add_argument('-d', '--dataset', type=str, choices=['mnist', 'fashion', 'fashion_mnist'], default='mnist', help='Dataset to use')
+    parser.add_argument('-d', '--dataset', type=str, choices=['mnist', 'fashion', 'fashion_mnist', 'fashion-mnist'], default='mnist', help='Dataset to use')
     parser.add_argument('-e', '--epochs', type=_positive_int, default=10, help='Number of training epochs')
     parser.add_argument('-b', '--batch_size', type=_positive_int, default=64, help='Mini-batch size')
     parser.add_argument('-lr', '--learning_rate', type=float, default=0.001, help='Learning rate for optimizer')
@@ -84,11 +112,11 @@ def parse_arguments():
     parser.add_argument('-sz', '--hidden_size', type=str, nargs='+', default=None, help='Sizes of hidden layers (list of values)')
     parser.add_argument('-nhl', '--num_layers', type=_positive_int, default=None, help='Number of hidden layers')
     parser.add_argument('-a', '--activation', type=str, choices=['relu', 'sigmoid', 'tanh'], default='relu', help='Activation function to use')
-    parser.add_argument('-l', '--loss', type=str, choices=['cross_entropy', 'mse'], default='cross_entropy', help='Loss function to use')
+    parser.add_argument('-l', '--loss', type=_normalize_loss_name, default='cross_entropy', help='Loss function to use')
     parser.add_argument('-wi', '--weight_init', type=str, choices=['random', 'xavier', 'zeros'], default='random', help='Weight initialization method')
     parser.add_argument('-wd', '--weight_decay', type=float, default=0.0, help='L2 weight decay coefficient')
     parser.add_argument('-wp', '--wandb_project', '--wandb-project', type=str, default='nn_training', help='W&B project id:dynfysb5')
-    parser.add_argument('--model_save_path', type=str, default='models/best_model.npy', help='Path to save trained model')
+    parser.add_argument('--model_save_path', type=str, default='src/best_model.npy', help='Path to save trained model')
 
 
     parser.add_argument('--momentum_beta', type=float, default=0.9, help='Momentum beta for Momentum optimizer')
@@ -122,7 +150,7 @@ def parse_arguments():
                 "num_layers must match number of hidden_size values, or provide a single hidden_size to repeat"
             )
 
-    if args.dataset == 'fashion':
+    if args.dataset in {'fashion', 'fashion-mnist'}:
         args.dataset = 'fashion_mnist'
 
     return args

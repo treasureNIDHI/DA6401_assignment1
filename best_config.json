@@ -4,13 +4,14 @@
     "epochs": 15,
     "batch_size": 128,
     "learning_rate": 0.001,
-    "optimizer": "rmsprop",
+    "optimizer": "adam",
     "hidden_layer_sizes": [
+        256,
         128,
         64
     ],
     "hidden_size": null,
-    "num_layers": null,
+    "num_layers": 3,
     "activation": "relu",
     "loss": "cross_entropy",
     "weight_init": "xavier",
