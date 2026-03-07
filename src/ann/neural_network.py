@@ -334,6 +334,13 @@ class NeuralNetwork:
             sys.stderr.write(f"Predicted class: {np.argmax(probs[0])}\n")
         
         return probs
+    
+    def predict(self, X):
+        """
+        Predict class labels.
+        """
+        probs = self.predict_proba(X)
+        return np.argmax(probs, axis=1)
 
     def backward(self, y_true, y_pred):
         """
