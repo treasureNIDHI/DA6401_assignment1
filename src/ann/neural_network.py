@@ -101,23 +101,61 @@ class NeuralNetwork:
         self.activations.append(Softmax()) 
 
 
-    def set_weights(self, weights_data):
+    def set_weights(self, weights_data, biases_data=None):
         """
         Set weights and biases for all layers.
         Used by autograder for testing with fixed weights.
         
         Args:
-            weights_data: Dictionary containing 'weights' and 'biases' lists,
-                         or numpy array containing such a dictionary
+            weights_data: Can be:
+                         - Dictionary with 'weights' and 'biases' keys
+                         - Numpy array containing such a dictionary
+                         - Tuple/list of (weights_list, biases_list)
+                         - List of weight matrices
+            biases_data: Optional list of bias vectors (when weights_data is a list)
         """
-        if isinstance(weights_data, np.ndarray):
-            weights_data = weights_data.item()
+        # If biases_data is provided as a separate argument
+        if biases_data is not None:
+            weights = weights_data if isinstance(weights_data, list) else list(weights_data)
+            biases = biases_data if isinstance(biases_data, list) else list(biases_data)
+        else:
+            # Handle numpy array wrapper
+            if isinstance(weights_data, np.ndarray):
+                try:
+                    weights_data = weights_data.item()
+                except (ValueError, AttributeError):
+                    # If it's an array but not a 0-d array with .item(), treat as list
+                    pass
         
-        if not isinstance(weights_data, dict):
-            raise ValueError("weights_data must be a dictionary with 'weights' and 'biases' keys")
+            # Parse different input formats
+            if isinstance(weights_data, dict):
+                # Dictionary format: {'weights': [...], 'biases': [...]}
+                weights = weights_data.get('weights', [])
+                biases = weights_data.get('biases', [])
+            elif isinstance(weights_data, (tuple, list)) and len(weights_data) == 2:
+                # Check if it's (weights_list, biases_list) tuple
+                try:
+                    if isinstance(weights_data[0], (list, np.ndarray)) and isinstance(weights_data[1], (list, np.ndarray)):
+                        weights, biases = weights_data[0], weights_data[1]
+                    else:
+                        # Single tuple entry, treat as list
+                        weights = weights_data
+                        biases = [np.zeros((1, w.shape[1] if len(w.shape) > 1 else len(w))) for w in weights]
+                except:
+                    weights = weights_data
+                    biases = [np.zeros((1, w.shape[1] if len(w.shape) > 1 else len(w))) for w in weights]
+            elif isinstance(weights_data, (tuple, list)):
+                # List of weight matrices only
+                weights = weights_data
+                biases = [np.zeros((1, w.shape[1] if len(w.shape) > 1 else len(w))) for w in weights]
+            else:
+                raise ValueError(f"Unsupported weights_data format: {type(weights_data)}")
         
-        weights = weights_data.get('weights', [])
-        biases = weights_data.get('biases', [])
+            # Convert to lists if needed
+            if not isinstance(weights, list):
+                weights = list(weights)
+            if not isinstance(biases, list):
+                biases = list(biases)
         
         if len(weights) != len(self.layers):
             raise ValueError(f"Expected {len(self.layers)} weight matrices, got {len(weights)}")
