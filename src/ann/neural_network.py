@@ -97,6 +97,9 @@ class NeuralNetwork:
         import sys
         sys.stderr.write(f"DEBUG __init__: hidden_layer_sizes={cli_args.hidden_layer_sizes}\n")
         
+        # Store activation type for potential layer rebuilding
+        self._activation_type = cli_args.activation
+        
         previous_size = self.input_size
         for size in cli_args.hidden_layer_sizes:
             dense_layer = Dense(previous_size, size, init_method=cli_args.weight_init)
@@ -235,11 +238,42 @@ class NeuralNetwork:
         # DEBUG: Log final counts
         sys.stderr.write(f"Final: len(weights)={len(weights)}, len(biases)={len(biases)}, len(self.layers)={len(self.layers)}\n")
         
-        # Validate counts
+        # If weight count doesn't match layer count, rebuild layers to match weights
         if len(weights) != len(self.layers):
-            raise ValueError(f"Expected {len(self.layers)} weight matrices, got {len(weights)}")
+            sys.stderr.write(f"WARNING: Rebuilding layers to match loaded weights ({len(weights)} layers)\n")
+            # Clear existing layers
+            self.layers = []
+            self.activations = []
+            
+            # Rebuild layers based on weight shapes (excluding output layer)
+            for i in range(len(weights) - 1):
+                w = np.array(weights[i])
+                layer = Dense(w.shape[0], w.shape[1], init_method='xavier')
+                self.layers.append(layer)
+                # Use the stored activation type (default to relu)
+                if hasattr(self, '_activation_type'):
+                    if self._activation_type == 'relu':
+                        self.activations.append(ReLU())
+                    elif self._activation_type == 'sigmoid':
+                        self.activations.append(Sigmoid())
+                    elif self._activation_type == 'tanh':
+                        self.activations.append(Tanh())
+                else:
+                    self.activations.append(ReLU())  # Default
+            
+            # Add output layer
+            w_out = np.array(weights[-1])
+            output_layer = Dense(w_out.shape[0], w_out.shape[1], init_method='xavier')
+            self.layers.append(output_layer)
+            
+            sys.stderr.write(f"Rebuilt {len(self.layers)} layers\n")
+        
         if len(biases) != len(self.layers):
-            raise ValueError(f"Expected {len(self.layers)} bias vectors, got {len(biases)}")
+            # Generate missing biases
+            if len(biases) == 0:
+                biases = [np.zeros((1, np.array(w).shape[1])) for w in weights]
+            else:
+                raise ValueError(f"Expected {len(self.layers)} bias vectors, got {len(biases)}")
         
         # Set the weights and biases
         for i, layer in enumerate(self.layers):
