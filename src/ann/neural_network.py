@@ -246,20 +246,27 @@ class NeuralNetwork:
             self.activations = []
             
             # Rebuild layers based on weight shapes (excluding output layer)
-            # IMPORTANT: When rebuilding from external model, use tanh (common for pre-trained models)
-            sys.stderr.write(f"Using tanh activation for rebuilt layers (external model)\n")
             for i in range(len(weights) - 1):
                 w = np.array(weights[i])
                 layer = Dense(w.shape[0], w.shape[1], init_method='xavier')
                 self.layers.append(layer)
-                self.activations.append(Tanh())  # Use tanh for external models
+                # Use the stored activation type (default to relu)
+                if hasattr(self, '_activation_type'):
+                    if self._activation_type == 'relu':
+                        self.activations.append(ReLU())
+                    elif self._activation_type == 'sigmoid':
+                        self.activations.append(Sigmoid())
+                    elif self._activation_type == 'tanh':
+                        self.activations.append(Tanh())
+                else:
+                    self.activations.append(ReLU())  # Default
             
             # Add output layer
             w_out = np.array(weights[-1])
             output_layer = Dense(w_out.shape[0], w_out.shape[1], init_method='xavier')
             self.layers.append(output_layer)
             
-            sys.stderr.write(f"Rebuilt {len(self.layers)} layers with tanh activation\n")
+            sys.stderr.write(f"Rebuilt {len(self.layers)} layers\n")
         
         if len(biases) != len(self.layers):
             # Generate missing biases
