@@ -275,10 +275,28 @@ class NeuralNetwork:
             else:
                 raise ValueError(f"Expected {len(self.layers)} bias vectors, got {len(biases)}")
         
+        # DEBUG: Check bias shapes before setting
+        sys.stderr.write("\n=== Bias shapes before setting ===\n")
+        for i, b in enumerate(biases):
+            b_arr = np.array(b)
+            sys.stderr.write(f"  biases[{i}]: shape={b_arr.shape}, ndim={b_arr.ndim}\n")
+        
         # Set the weights and biases
         for i, layer in enumerate(self.layers):
             layer.W = np.array(weights[i], dtype=np.float64)
-            layer.b = np.array(biases[i], dtype=np.float64)
+            # Ensure bias is 2D with shape (1, n)
+            b_arr = np.array(biases[i], dtype=np.float64)
+            if b_arr.ndim == 1:
+                sys.stderr.write(f"  WARNING: Reshaping bias[{i}] from {b_arr.shape} to (1, {b_arr.shape[0]})\n")
+                b_arr = b_arr.reshape(1, -1)
+            layer.b = b_arr
+            
+        # DEBUG: Verify weights were set
+        sys.stderr.write("\n=== After setting weights ===\n")
+        for i, layer in enumerate(self.layers):
+            sys.stderr.write(f"Layer {i}: W.shape={layer.W.shape}, b.shape={layer.b.shape}\n")
+            sys.stderr.write(f"  W stats: min={layer.W.min():.4f}, max={layer.W.max():.4f}, mean={layer.W.mean():.4f}\n")
+            sys.stderr.write(f"  b stats: min={layer.b.min():.4f}, max={layer.b.max():.4f}, mean={layer.b.mean():.4f}\n")
 
     
     def forward(self, X):
@@ -305,7 +323,17 @@ class NeuralNetwork:
     def predict_proba(self, X):
         """Return softmax probabilities computed from logits."""
         logits = self.forward(X)
-        return self.output_activation.forward(logits)
+        probs = self.output_activation.forward(logits)
+        
+        # DEBUG: Show sample predictions
+        import sys
+        if X.shape[0] >= 5:
+            sys.stderr.write(f"\n=== Sample predictions (first 5) ===\n")
+            sys.stderr.write(f"Logits[0]: {logits[0]}\n")
+            sys.stderr.write(f"Probs[0]: {probs[0]}\n")
+            sys.stderr.write(f"Predicted class: {np.argmax(probs[0])}\n")
+        
+        return probs
 
     def backward(self, y_true, y_pred):
         """
