@@ -94,6 +94,9 @@ class NeuralNetwork:
         else:
             raise ValueError("Invalid optimizer")
 
+        import sys
+        sys.stderr.write(f"DEBUG __init__: hidden_layer_sizes={cli_args.hidden_layer_sizes}\n")
+        
         previous_size = self.input_size
         for size in cli_args.hidden_layer_sizes:
             dense_layer = Dense(previous_size, size, init_method=cli_args.weight_init)
@@ -112,6 +115,11 @@ class NeuralNetwork:
             previous_size = size
         output_layer = Dense(previous_size, self.output_size, init_method=cli_args.weight_init)
         self.layers.append(output_layer)
+        
+        import sys
+        sys.stderr.write(f"DEBUG __init__: Created {len(self.layers)} layers\n")
+        for i, layer in enumerate(self.layers):
+            sys.stderr.write(f"  Layer {i}: {layer.W.shape}\n")
 
 
     def set_weights(self, weights_data, biases_data=None):
@@ -160,6 +168,9 @@ class NeuralNetwork:
                     sys.stderr.write("Path: Case 2a\n")
                     weights = list(weights_data['weights'])
                     biases = list(weights_data['biases'])
+                    sys.stderr.write(f"Extracted {len(weights)} weights from dict\n")
+                    for i, w in enumerate(weights):
+                        sys.stderr.write(f"  weights[{i}]: shape={np.array(w).shape}\n")
                 elif 'W' in weights_data:
                     sys.stderr.write("Path: Case 2b\n")
                     weights = list(weights_data.get('W', []))
