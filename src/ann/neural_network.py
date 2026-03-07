@@ -69,7 +69,7 @@ class NeuralNetwork:
                         cli_args.hidden_layer_sizes = cli_args.hidden_layer_sizes * int(num_layers)
             else:
                 # Default hidden layer sizes
-                cli_args.hidden_layer_sizes = [128, 64]
+                cli_args.hidden_layer_sizes = [128, 128, 128]
 
         loss_name = str(cli_args.loss).lower().replace("-", "_")
         if loss_name in {"cross_entropy", "crossentropy", "ce"}:
