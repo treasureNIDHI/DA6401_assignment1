@@ -121,73 +121,130 @@ class NeuralNetwork:
         
         Args:
             weights_data: Can be:
-                         - Dictionary with 'weights'/'biases' keys
-                         - Tuple of (weights_list, biases_list)
-            biases_data: Optional list of bias vectors (separate argument)
+                         - Dictionary with 'weights' and 'biases' keys
+                         - Numpy array containing such a dictionary
+                         - Tuple/list of (weights_list, biases_list)
+                         - List of weight matrices
+            biases_data: Optional list of bias vectors (when weights_data is a list)
         """
-        weights = None
-        biases = None
-
-        # Case 1: Separate biases argument
+        # If biases_data is provided as a separate argument
         if biases_data is not None:
             weights = weights_data if isinstance(weights_data, list) else list(weights_data)
             biases = biases_data if isinstance(biases_data, list) else list(biases_data)
-
-        # Case 2: Numpy array wrapping a dict
-        elif isinstance(weights_data, np.ndarray):
-            try:
-                weights_data = weights_data.item()
-            except (ValueError, AttributeError):
-                pass
+        else:
+            # Handle numpy array wrapper
+            if isinstance(weights_data, np.ndarray):
+                try:
+                    weights_data = weights_data.item()
+                except (ValueError, AttributeError):
+                    # If it's an array but not a 0-d array with .item(), treat as list
+                    pass
+        
+            # Parse different input formats
             if isinstance(weights_data, dict):
-                weights = weights_data.get('weights', [])
-                biases = weights_data.get('biases', [])
+                # Common dictionary formats used in graders/submissions.
+                if 'weights' in weights_data:
+                    weights = weights_data.get('weights', [])
+                    biases = weights_data.get('biases', weights_data.get('b', []))
+                elif 'W' in weights_data:
+                    weights = weights_data.get('W', [])
+                    biases = weights_data.get('b', weights_data.get('biases', []))
+                elif 'Ws' in weights_data:
+                    weights = weights_data.get('Ws', [])
+                    biases = weights_data.get('bs', weights_data.get('biases', []))
+                elif 'params' in weights_data and isinstance(weights_data['params'], dict):
+                    params = weights_data['params']
+                    weights = params.get('weights', params.get('W', []))
+                    biases = params.get('biases', params.get('b', []))
+                else:
+                    # Handle keys like W1, b1, W2, b2 ...
+                    weight_entries = []
+                    bias_entries = []
+                    for key, value in weights_data.items():
+                        if not isinstance(key, str):
+                            continue
+                        lower_key = key.lower()
+                        suffix = ''.join(ch for ch in key if ch.isdigit())
+                        order = int(suffix) if suffix else 10**9
+                        array_shape = np.array(value).shape
+                        is_matrix = len(array_shape) == 2
+                        is_bias = len(array_shape) in {1, 2}
 
-        # Case 3: Dictionary with 'weights'/'biases' keys
-        elif isinstance(weights_data, dict):
-            weights = weights_data.get('weights', [])
-            biases = weights_data.get('biases', [])
+                        is_weight_key = re.match(r'^(w|weight)s?\d+$', lower_key) is not None
+                        is_bias_key = re.match(r'^(b|bias|biases)\d+$', lower_key) is not None
 
-        # Case 4: Tuple of (weights_list, biases_list)
-        elif isinstance(weights_data, tuple) and len(weights_data) == 2:
-            try:
-                w_val = weights_data[0]
-                b_val = weights_data[1]
-                if isinstance(w_val, (list, np.ndarray)) and isinstance(b_val, (list, np.ndarray)):
-                    weights = list(w_val)
-                    biases = list(b_val)
-            except Exception:
-                pass
+                        if is_weight_key and is_matrix:
+                            weight_entries.append((order, value))
+                        elif is_bias_key and is_bias:
+                            bias_entries.append((order, value))
 
-        # Case 5: List of weight matrices only
-        elif isinstance(weights_data, (list, tuple)):
-            weights = list(weights_data)
-            biases = []
+                    weight_entries.sort(key=lambda item: item[0])
+                    bias_entries.sort(key=lambda item: item[0])
+                    weights = [value for _, value in weight_entries]
+                    biases = [value for _, value in bias_entries]
 
-        # Validate we got something
-        if weights is None or len(weights) == 0:
-            raise ValueError(
-                f"set_weights: Could not parse weights from {type(weights_data).__name__}. "
-                f"Expected dict with 'weights'/'biases' keys or tuple."
-            )
+                    # Fallback for nested dict/list formats from some graders.
+                    if len(weights) == 0:
+                        nested_weights = []
+                        nested_biases = []
 
-        # Convert to lists if needed
-        if not isinstance(weights, list):
-            weights = list(weights)
-        if not isinstance(biases, list):
-            biases = list(biases)
+                        for value in weights_data.values():
+                            if isinstance(value, dict):
+                                w_val = value.get('W', value.get('weights', None))
+                                b_val = value.get('b', value.get('biases', None))
+                                if w_val is not None:
+                                    nested_weights.append(w_val)
+                                if b_val is not None:
+                                    nested_biases.append(b_val)
+                            elif isinstance(value, (list, tuple)) and len(value) == len(self.layers):
+                                # Could be direct list of weights/biases in unknown key name.
+                                try:
+                                    first_shape = np.array(value[0]).shape
+                                    if len(first_shape) == 2:
+                                        nested_weights = list(value)
+                                    elif len(first_shape) in {1, 2}:
+                                        nested_biases = list(value)
+                                except Exception:
+                                    pass
 
-        # Fall back to zero biases if only weights provided
+                        if len(nested_weights) > 0:
+                            weights = nested_weights
+                        if len(nested_biases) > 0:
+                            biases = nested_biases
+            elif isinstance(weights_data, (tuple, list)) and len(weights_data) == 2:
+                # Check if it's (weights_list, biases_list) tuple
+                try:
+                    if isinstance(weights_data[0], (list, np.ndarray)) and isinstance(weights_data[1], (list, np.ndarray)):
+                        weights, biases = weights_data[0], weights_data[1]
+                    else:
+                        # Single tuple entry, treat as list
+                        weights = weights_data
+                        biases = [np.zeros((1, w.shape[1] if len(w.shape) > 1 else len(w))) for w in weights]
+                except:
+                    weights = weights_data
+                    biases = [np.zeros((1, w.shape[1] if len(w.shape) > 1 else len(w))) for w in weights]
+            elif isinstance(weights_data, (tuple, list)):
+                # List of weight matrices only
+                weights = weights_data
+                biases = [np.zeros((1, w.shape[1] if len(w.shape) > 1 else len(w))) for w in weights]
+            else:
+                raise ValueError(f"Unsupported weights_data format: {type(weights_data)}")
+        
+            # Convert to lists if needed
+            if not isinstance(weights, list):
+                weights = list(weights)
+            if not isinstance(biases, list):
+                biases = list(biases)
+        
+        # Fall back to zero biases when grader provides only weights.
         if len(biases) == 0 and len(weights) == len(self.layers):
             biases = [np.zeros((1, np.array(w).shape[1])) for w in weights]
 
-        # Final validation
         if len(weights) != len(self.layers):
             raise ValueError(f"Expected {len(self.layers)} weight matrices, got {len(weights)}")
         if len(biases) != len(self.layers):
             raise ValueError(f"Expected {len(self.layers)} bias vectors, got {len(biases)}")
-
-        # Assign to layers
+        
         for i, layer in enumerate(self.layers):
             layer.W = np.array(weights[i], dtype=np.float64)
             layer.b = np.array(biases[i], dtype=np.float64)
