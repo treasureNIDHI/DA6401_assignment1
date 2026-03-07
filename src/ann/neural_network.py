@@ -312,7 +312,8 @@ class NeuralNetwork:
         Returns:
             Output logits
         """
-        output = X
+        # output = X
+        output = X.astype(np.float64) / 255.0
 
         # Hidden layers apply the chosen non-linearity.
         for i in range(len(self.layers) - 1):
