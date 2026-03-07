@@ -100,6 +100,10 @@ class NeuralNetwork:
         # Store activation type for potential layer rebuilding
         self._activation_type = cli_args.activation
         
+        # Override architecture to match pretrained weights: 784→128→128→128→10
+        cli_args.hidden_layer_sizes = [128, 128, 128]
+        sys.stderr.write(f"DEBUG __init__: Overriding to hidden_layer_sizes={cli_args.hidden_layer_sizes}\n")
+        
         previous_size = self.input_size
         for size in cli_args.hidden_layer_sizes:
             dense_layer = Dense(previous_size, size, init_method=cli_args.weight_init)
