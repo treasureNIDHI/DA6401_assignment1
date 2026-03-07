@@ -127,6 +127,15 @@ class NeuralNetwork:
                          - List of weight matrices
             biases_data: Optional list of bias vectors (when weights_data is a list)
         """
+        # DEBUG: Print what we're receiving
+        print(f"DEBUG set_weights: type={type(weights_data)}, biases_data type={type(biases_data)}")
+        if isinstance(weights_data, dict):
+            print(f"DEBUG dict keys: {list(weights_data.keys())}")
+        elif isinstance(weights_data, (list, tuple)):
+            print(f"DEBUG list/tuple length: {len(weights_data)}")
+            if len(weights_data) > 0:
+                print(f"DEBUG first element type: {type(weights_data[0])}")
+        
         # If biases_data is provided as a separate argument
         if biases_data is not None:
             weights = weights_data if isinstance(weights_data, list) else list(weights_data)
@@ -240,6 +249,9 @@ class NeuralNetwork:
         if len(biases) == 0 and len(weights) == len(self.layers):
             biases = [np.zeros((1, np.array(w).shape[1])) for w in weights]
 
+        # DEBUG: Print final counts
+        print(f"DEBUG final: len(weights)={len(weights)}, len(biases)={len(biases)}, len(self.layers)={len(self.layers)}")
+        
         if len(weights) != len(self.layers):
             raise ValueError(f"Expected {len(self.layers)} weight matrices, got {len(weights)}")
         if len(biases) != len(self.layers):
