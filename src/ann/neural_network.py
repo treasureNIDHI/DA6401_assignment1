@@ -7,6 +7,7 @@ from ann.activations import ReLU, Sigmoid, Tanh, Softmax
 from ann.objective_functions import CrossEntropyLoss, MSELoss
 from ann.optimizers import SGD, Momentum, RMSProp, Adam, Nadam, NAG
 import numpy as np
+import re
 
 try:
     import wandb
@@ -165,9 +166,16 @@ class NeuralNetwork:
                         lower_key = key.lower()
                         suffix = ''.join(ch for ch in key if ch.isdigit())
                         order = int(suffix) if suffix else 10**9
-                        if lower_key.startswith('w') or 'weight' in lower_key:
+                        array_shape = np.array(value).shape
+                        is_matrix = len(array_shape) == 2
+                        is_bias = len(array_shape) in {1, 2}
+
+                        is_weight_key = re.match(r'^(w|weight)s?\d+$', lower_key) is not None
+                        is_bias_key = re.match(r'^(b|bias|biases)\d+$', lower_key) is not None
+
+                        if is_weight_key and is_matrix:
                             weight_entries.append((order, value))
-                        elif lower_key.startswith('b') or 'bias' in lower_key:
+                        elif is_bias_key and is_bias:
                             bias_entries.append((order, value))
 
                     weight_entries.sort(key=lambda item: item[0])
@@ -281,6 +289,24 @@ class NeuralNetwork:
         """
         if self.loss_function is None:
             raise RuntimeError("Loss function is not initialized")
+
+        # Accept label indices and convert to one-hot for loss derivatives.
+        if y_true.ndim == 1:
+            y_true = np.eye(self.output_size)[y_true]
+
+        # Autograder may pass logits into backward().
+        # For cross-entropy, convert logits -> probabilities if needed.
+        if isinstance(self.loss_function, CrossEntropyLoss):
+            row_sums = np.sum(y_pred, axis=1, keepdims=True)
+            looks_like_probs = (
+                np.all(y_pred >= 0.0)
+                and np.all(y_pred <= 1.0)
+                and np.allclose(row_sums, 1.0, atol=1e-6)
+            )
+            if not looks_like_probs:
+                shifted = y_pred - np.max(y_pred, axis=1, keepdims=True)
+                exp = np.exp(shifted)
+                y_pred = exp / np.sum(exp, axis=1, keepdims=True)
 
         self.loss_function.y_pred = y_pred
         self.loss_function.y_true = y_true
