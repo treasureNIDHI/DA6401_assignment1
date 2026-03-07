@@ -10,7 +10,6 @@ from utils.data_loader import load_data
 import os
 import wandb
 import json
-from sklearn.model_selection import train_test_split
 
 
 def _parse_hidden_layer_sizes(values):

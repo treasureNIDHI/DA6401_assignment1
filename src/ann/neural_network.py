@@ -29,6 +29,34 @@ class NeuralNetwork:
         self.output_size = 10
         self.weight_decay = getattr(cli_args, "weight_decay", 0.0)
 
+        # Handle hidden_layer_sizes attribute (added this part for autograder to work with different argument names)
+        if not hasattr(cli_args, 'hidden_layer_sizes'):
+            # Parse from hidden_size or num_layers if available
+            hidden_size = getattr(cli_args, 'hidden_size', getattr(cli_args, 'sz', None))
+            num_layers = getattr(cli_args, 'num_layers', getattr(cli_args, 'nhl', None))
+            
+            if hidden_size is not None:
+                if isinstance(hidden_size, (list, tuple)):
+                    cli_args.hidden_layer_sizes = [int(s) for s in hidden_size]
+                elif isinstance(hidden_size, str):
+                    # Parse string representation
+                    hidden_size_str = hidden_size.strip()
+                    if hidden_size_str.startswith('[') and hidden_size_str.endswith(']'):
+                        hidden_size_str = hidden_size_str[1:-1]
+                    if ',' in hidden_size_str:
+                        cli_args.hidden_layer_sizes = [int(s.strip()) for s in hidden_size_str.split(',') if s.strip()]
+                    else:
+                        cli_args.hidden_layer_sizes = [int(s.strip()) for s in hidden_size_str.split() if s.strip()]
+                else:
+                    cli_args.hidden_layer_sizes = [int(hidden_size)]
+                
+                # Handle num_layers expansion
+                if num_layers is not None and int(num_layers) > 1:
+                    if len(cli_args.hidden_layer_sizes) == 1:
+                        cli_args.hidden_layer_sizes = cli_args.hidden_layer_sizes * int(num_layers)
+            else:
+                # Default hidden layer sizes
+                cli_args.hidden_layer_sizes = [128, 64]
 
         if cli_args.loss == "cross_entropy":
             self.loss_function = CrossEntropyLoss()
@@ -73,6 +101,32 @@ class NeuralNetwork:
         self.activations.append(Softmax()) 
 
 
+    def set_weights(self, weights_data):
+        """
+        Set weights and biases for all layers.
+        Used by autograder for testing with fixed weights.
+        
+        Args:
+            weights_data: Dictionary containing 'weights' and 'biases' lists,
+                         or numpy array containing such a dictionary
+        """
+        if isinstance(weights_data, np.ndarray):
+            weights_data = weights_data.item()
+        
+        if not isinstance(weights_data, dict):
+            raise ValueError("weights_data must be a dictionary with 'weights' and 'biases' keys")
+        
+        weights = weights_data.get('weights', [])
+        biases = weights_data.get('biases', [])
+        
+        if len(weights) != len(self.layers):
+            raise ValueError(f"Expected {len(self.layers)} weight matrices, got {len(weights)}")
+        if len(biases) != len(self.layers):
+            raise ValueError(f"Expected {len(self.layers)} bias vectors, got {len(biases)}")
+        
+        for i, layer in enumerate(self.layers):
+            layer.W = np.array(weights[i], dtype=np.float64)
+            layer.b = np.array(biases[i], dtype=np.float64)
 
     
     def forward(self, X):
@@ -136,6 +190,7 @@ class NeuralNetwork:
         for epoch in range(epochs):
 
             epoch_loss = 0
+            batch_count = 0
 
             for batch in range(0, len(X_train), batch_size):
 
@@ -148,8 +203,7 @@ class NeuralNetwork:
                 # Loss
                 loss = self.loss_function.forward(y_pred, y_batch)
                 epoch_loss += loss
-
-                print(f"Epoch {epoch + 1}, Batch {batch}, Loss: {loss:.4f}")
+                batch_count += 1
 
                 # Backward pass
                 self.backward(y_batch, y_pred)
@@ -213,6 +267,10 @@ class NeuralNetwork:
            
             if wandb.run is not None:
                 wandb.log(log_data)
+            
+            # Print epoch summary (reduced verbosity)
+            print(f"Epoch {epoch + 1}/{epochs} - Loss: {avg_loss:.4f}, Train Acc: {train_acc:.4f}")
+
 
         
     def evaluate(self, X, y):

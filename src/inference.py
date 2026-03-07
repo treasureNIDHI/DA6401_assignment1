@@ -9,6 +9,32 @@ from ann.objective_functions import CrossEntropyLoss, MSELoss
 import argparse
 
 
+def _parse_hidden_layer_sizes(values):
+    """Parse hidden layer sizes from various input formats."""
+    if isinstance(values, list):
+        raw_value = " ".join(str(value) for value in values).strip()
+    else:
+        raw_value = str(values).strip()
+
+    if raw_value.startswith("[") and raw_value.endswith("]"):
+        raw_value = raw_value[1:-1].strip()
+
+    if not raw_value:
+        raise argparse.ArgumentTypeError("hidden_layer_sizes cannot be empty")
+
+    if "," in raw_value:
+        tokens = [token.strip() for token in raw_value.split(",") if token.strip()]
+    else:
+        tokens = [token.strip() for token in raw_value.split() if token.strip()]
+
+    try:
+        return [int(token) for token in tokens]
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            f"invalid hidden_layer_sizes value: {values}"
+        ) from error
+
+
 def parse_arguments():
     """
     Parse command-line arguments for inference.
@@ -26,8 +52,8 @@ def parse_arguments():
     parser.add_argument('--model_path', type=str, default='models/best_model.npy', help='Path to saved model weights')
     parser.add_argument('-d', '--dataset', type=str, choices=['mnist', 'fashion', 'fashion_mnist'], default='mnist', help='Dataset to evaluate on')
     parser.add_argument('-b', '--batch_size', type=int, default=64, help='Batch size for inference')
-    parser.add_argument('--hidden_layer_sizes', type=int, nargs='+', default=[128, 64], help='Sizes of hidden layers (backward compatible alias)')
-    parser.add_argument('-sz', '--hidden_size', type=int, nargs='+', default=None, help='Sizes of hidden layers')
+    parser.add_argument('--hidden_layer_sizes', type=str, nargs='+', default=['128', '64'], help='Sizes of hidden layers (backward compatible alias)')
+    parser.add_argument('-sz', '--hidden_size', type=str, nargs='+', default=None, help='Sizes of hidden layers')
     parser.add_argument('-nhl', '--num_layers', type=int, default=None, help='Number of hidden layers')
     parser.add_argument('-a', '--activation', type=str, choices=['relu', 'sigmoid', 'tanh'], default='relu', help='Activation function to use')
     parser.add_argument('-l', '--loss', type=str, choices=['cross_entropy', 'mse'], default='cross_entropy', help='Loss function to use')
@@ -48,8 +74,9 @@ def parse_arguments():
 
     args = parser.parse_args()
 
-    if args.hidden_size is not None:
-        args.hidden_layer_sizes = args.hidden_size
+    # Parse hidden_layer_sizes (same logic as train.py)
+    hidden_sizes_source = args.hidden_size if args.hidden_size is not None else args.hidden_layer_sizes
+    args.hidden_layer_sizes = _parse_hidden_layer_sizes(hidden_sizes_source)
 
     if args.num_layers is not None:
         if len(args.hidden_layer_sizes) == 1 and args.num_layers > 1:
@@ -70,14 +97,13 @@ def load_model(model_path, args):
     Load trained model from disk.
     """
     model = NeuralNetwork(args)
-    saved  = np.load(model_path, allow_pickle=True).item()
+    saved = np.load(model_path, allow_pickle=True).item()
 
     weights = saved['weights']
     biases = saved['biases']
 
-    for i, layer in enumerate(model.layers):
-        layer.W = weights[i]
-        layer.b = biases[i]
+    # Use set_weights method instead of directly setting layer attributes
+    model.set_weights({'weights': weights, 'biases': biases})
 
     return model
 
