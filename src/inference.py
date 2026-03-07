@@ -124,11 +124,13 @@ def evaluate_model(model, X_test, y_test, args):
     TODO: Return Dictionary - logits, loss, accuracy, f1, precision, recall
     """
     logits = model.forward(X_test)
+    probs = model.predict_proba(X_test)
     if args.loss == "cross_entropy":
         loss_function = CrossEntropyLoss()
+        loss = loss_function.forward(probs, y_test)
     else:
         loss_function = MSELoss()
-    loss = loss_function.forward(logits, y_test)
+        loss = loss_function.forward(logits, y_test)
     accuracy, precision, recall, f1 = model.evaluate(X_test, y_test)
     return {
         "logits": logits,

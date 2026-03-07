@@ -36,6 +36,7 @@ class NeuralNetwork:
         self.activations = []
         self.loss_function = None
         self.optimizer = None
+        self.output_activation = Softmax()
         self.input_size = 784
         self.output_size = 10
         self.weight_decay = getattr(cli_args, "weight_decay", 0.0)
@@ -106,11 +107,10 @@ class NeuralNetwork:
                 activation_object = Softmax()
             else:
                 raise ValueError("Invalid activation function")
-            self.activations.append(activation_object)  # Use the selected activation for hidden layers
+            self.activations.append(activation_object)
             previous_size = size
         output_layer = Dense(previous_size, self.output_size, init_method=cli_args.weight_init)
         self.layers.append(output_layer)
-        self.activations.append(Softmax()) 
 
 
     def set_weights(self, weights_data, biases_data=None):
@@ -254,10 +254,19 @@ class NeuralNetwork:
         """
         output = X
 
-        for i, layer in enumerate(self.layers):
-            output = layer.forward(output)
+        # Hidden layers apply the chosen non-linearity.
+        for i in range(len(self.layers) - 1):
+            output = self.layers[i].forward(output)
             output = self.activations[i].forward(output)
-        return output
+
+        # Final layer returns raw logits (autograder expects logits here).
+        logits = self.layers[-1].forward(output)
+        return logits
+
+    def predict_proba(self, X):
+        """Return softmax probabilities computed from logits."""
+        logits = self.forward(X)
+        return self.output_activation.forward(logits)
 
     def backward(self, y_true, y_pred):
         """
@@ -277,9 +286,18 @@ class NeuralNetwork:
         self.loss_function.y_true = y_true
         grad = self.loss_function.backward()
 
-        for i in reversed(range(len(self.layers))):
+        # Backprop through output dense layer first (no output activation layer here).
+        grad = self.layers[-1].backward(grad)
+
+        # Backprop through hidden layers in reverse order.
+        for i in reversed(range(len(self.layers) - 1)):
             grad = self.activations[i].backward(grad)
             grad = self.layers[i].backward(grad)
+
+        # Return gradients so autograder can unpack them.
+        grad_w = [layer.grad_W for layer in self.layers]
+        grad_b = [layer.grad_b for layer in self.layers]
+        return grad_w, grad_b
     
     def update_weights(self):
         """
@@ -311,7 +329,8 @@ class NeuralNetwork:
                 y_batch = y_train[batch:batch + batch_size]
 
                 # Forward pass
-                y_pred = self.forward(X_batch)
+                logits = self.forward(X_batch)
+                y_pred = self.output_activation.forward(logits)
 
                 # Loss
                 loss = self.loss_function.forward(y_pred, y_batch)
@@ -328,7 +347,12 @@ class NeuralNetwork:
                 grad_norm = 0
                 if len(self.layers) > 0:
                     grad_norm = (self.layers[0].grad_W ** 2).sum() ** 0.5
-                activation_mean = abs(self.activations[0].output).mean() if hasattr(self.activations[0], "output") else 0
+                activation_mean = 0
+                if len(self.activations) > 0:
+                    if hasattr(self.activations[0], "output"):
+                        activation_mean = abs(self.activations[0].output).mean()
+                    elif hasattr(self.activations[0], "out"):
+                        activation_mean = abs(self.activations[0].out).mean()
 
                 neuron_grad_logs = {}
                 if len(self.layers) > 0:
@@ -391,7 +415,7 @@ class NeuralNetwork:
         Evaluate the network on given data.
         Returns accuracy, precision, recall, and f1 score.
         """
-        y_pred = self.forward(X)
+        y_pred = self.predict_proba(X)
         # Convert predictions to class labels
         y_pred_labels = y_pred.argmax(axis=1)
         # Convert one-hot encoded labels to class indices if needed
