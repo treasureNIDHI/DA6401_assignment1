@@ -127,6 +127,17 @@ class NeuralNetwork:
                          - List of weight matrices
             biases_data: Optional list of bias vectors (when weights_data is a list)
         """
+        import sys
+        # DEBUG: Log input format to stderr
+        if isinstance(weights_data, dict):
+            print(f"DEBUG: set_weights received dict with keys: {list(weights_data.keys())}", file=sys.stderr)
+        elif isinstance(weights_data, (list, tuple)):
+            print(f"DEBUG: set_weights received {type(weights_data).__name__} with len={len(weights_data)}", file=sys.stderr)
+            if len(weights_data) > 0 and isinstance(weights_data[0], (list, tuple, np.ndarray)):
+                print(f"DEBUG: first element type: {type(weights_data[0])}, len={len(weights_data[0]) if isinstance(weights_data[0], (list, tuple)) else 'N/A'}", file=sys.stderr)
+        else:
+            print(f"DEBUG: set_weights received {type(weights_data)}", file=sys.stderr)
+        
         # If biases_data is provided as a separate argument
         if biases_data is not None:
             weights = weights_data if isinstance(weights_data, list) else list(weights_data)
@@ -211,6 +222,13 @@ class NeuralNetwork:
                             weights = nested_weights
                         if len(nested_biases) > 0:
                             biases = nested_biases
+                    
+                    import sys
+                    # DEBUG: Log fallback results
+                    if len(weights) == 0:
+                        print(f"DEBUG: After fallback, weights still empty, biases len={len(biases)}", file=sys.stderr)
+                    else:
+                        print(f"DEBUG: After fallback, len(weights)={len(weights)}, len(biases)={len(biases)}", file=sys.stderr)
             elif isinstance(weights_data, (tuple, list)) and len(weights_data) == 2:
                 # Check if it's (weights_list, biases_list) tuple
                 try:
@@ -240,6 +258,12 @@ class NeuralNetwork:
         if len(biases) == 0 and len(weights) == len(self.layers):
             biases = [np.zeros((1, np.array(w).shape[1])) for w in weights]
 
+        import sys
+        # DEBUG: Log what we counted
+        print(f"DEBUG: before check - len(weights)={len(weights)}, len(biases)={len(biases)}, len(self.layers)={len(self.layers)}", file=sys.stderr)
+        if len(weights) > 0:
+            print(f"DEBUG: weight shapes: {[np.array(w).shape for w in weights]}", file=sys.stderr)
+        
         if len(weights) != len(self.layers):
             raise ValueError(f"Expected {len(self.layers)} weight matrices, got {len(weights)}")
         if len(biases) != len(self.layers):
