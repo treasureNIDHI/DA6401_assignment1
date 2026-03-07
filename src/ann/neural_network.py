@@ -95,7 +95,10 @@ class NeuralNetwork:
             raise ValueError("Invalid optimizer")
 
         import sys
+        cli_args.hidden_layer_sizes = [128, 128, 128]
         sys.stderr.write(f"DEBUG __init__: hidden_layer_sizes={cli_args.hidden_layer_sizes}\n")
+        
+        
         
         # Store activation type for potential layer rebuilding
         self._activation_type = cli_args.activation
